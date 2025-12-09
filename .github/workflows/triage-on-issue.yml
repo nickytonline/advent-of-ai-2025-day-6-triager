@@ -96,16 +96,26 @@ jobs:
         run: |
           echo "Triaging issue #$ISSUE_NUMBER in repo $REPO"
           
-          # Load the triage prompt template and substitute issue details
-          PROMPT_TEMPLATE=$(cat .github/triage_prompt.txt)
+          # Use Python for reliable string substitution (handles newlines and special chars)
+          python3 << 'PYTHON_EOF' > triage_prompt.txt
+          import os
           
-          # Replace placeholders with actual issue data
-          # Note: We need to escape special characters for sed
-          ESCAPED_TITLE=$(printf '%s\n' "$ISSUE_TITLE" | sed 's/[&/\]/\\&/g')
-          ESCAPED_BODY=$(printf '%s\n' "$ISSUE_BODY" | sed 's/[&/\]/\\&/g')
+          # Read the template
+          with open('.github/triage_prompt.txt', 'r') as f:
+              template = f.read()
           
-          TRIAGE_PROMPT=$(echo "$PROMPT_TEMPLATE" | sed "s/{{ISSUE_TITLE}}/$ESCAPED_TITLE/g")
-          TRIAGE_PROMPT=$(echo "$TRIAGE_PROMPT" | sed "s/{{ISSUE_BODY}}/$ESCAPED_BODY/g")
+          # Get issue data from environment
+          issue_title = os.environ.get('ISSUE_TITLE', '')
+          issue_body = os.environ.get('ISSUE_BODY', '')
+          
+          # Replace placeholders
+          result = template.replace('{{ISSUE_TITLE}}', issue_title)
+          result = result.replace('{{ISSUE_BODY}}', issue_body)
+          
+          print(result)
+          PYTHON_EOF
+          
+          TRIAGE_PROMPT=$(cat triage_prompt.txt)
           
           echo "Generated prompt:"
           echo "$TRIAGE_PROMPT"
