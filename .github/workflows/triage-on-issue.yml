@@ -1,0 +1,165 @@
+name: goose-issue-triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install goose
+        run: |
+          curl -fsSL https://github.com/block/goose/releases/download/stable/goose-x86_64-unknown-linux-gnu.tar.bz2 -o goose.tar.bz2
+          tar -xjf goose.tar.bz2
+          mkdir -p ~/.local/bin
+          mv goose ~/.local/bin/
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Setup Goose Config
+        run: |
+          mkdir -p ~/.config/goose
+
+          # Create config file for OpenRouter
+          cat > ~/.config/goose/config.yaml << 'EOF'
+          GOOSE_PROVIDER: "openrouter"
+          GOOSE_MODEL: "anthropic/claude-sonnet-4"
+          keyring: false
+
+          extensions:
+            developer:
+              bundled: true
+              enabled: true
+              name: developer
+              timeout: 300
+              type: builtin
+          EOF
+
+          # Verify config was created
+          echo "Config file contents:"
+          cat ~/.config/goose/config.yaml
+
+      - name: Ensure Required Labels Exist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Checking and creating required labels..."
+          
+          # Function to create label if it doesn't exist
+          create_label_if_missing() {
+            local name=$1
+            local color=$2
+            local description=$3
+            
+            if ! gh label list --repo "$REPO" | grep -q "^$name"; then
+              echo "Creating label: $name"
+              gh label create "$name" --color "$color" --description "$description" --repo "$REPO"
+            else
+              echo "Label already exists: $name"
+            fi
+          }
+          
+          # Category labels (required)
+          create_label_if_missing "urgent" "b60205" "Safety hazards, critical system failures requiring immediate action"
+          create_label_if_missing "bug" "d93f0b" "Equipment malfunctions, technical problems"
+          create_label_if_missing "feature" "0e8a16" "Enhancement requests, new capabilities, improvement suggestions"
+          create_label_if_missing "question" "0366d6" "Information requests, location queries, policy clarifications"
+          
+          # Priority labels (required)
+          create_label_if_missing "priority:high" "d93f0b" "Critical, affects many attendees, time-sensitive"
+          create_label_if_missing "priority:medium" "fbca04" "Moderate impact, resolve within 24h"
+          create_label_if_missing "priority:low" "0e8a16" "Low impact, nice-to-have, future enhancements"
+          
+          # Sentiment labels (optional)
+          create_label_if_missing "sentiment:positive" "0e8a16" "Positive feedback, compliments, appreciation"
+          create_label_if_missing "sentiment:neutral" "d4c5f9" "Neutral, factual reports"
+          create_label_if_missing "sentiment:negative" "b60205" "Complaints, frustration, problems with negative tone"
+          
+          echo "✅ All required labels are ready!"
+
+      - name: Triage issue with goose
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Triaging issue #$ISSUE_NUMBER in repo $REPO"
+          
+          # Load the triage prompt template and substitute issue details
+          PROMPT_TEMPLATE=$(cat .github/triage_prompt.txt)
+          
+          # Replace placeholders with actual issue data
+          # Note: We need to escape special characters for sed
+          ESCAPED_TITLE=$(printf '%s\n' "$ISSUE_TITLE" | sed 's/[&/\]/\\&/g')
+          ESCAPED_BODY=$(printf '%s\n' "$ISSUE_BODY" | sed 's/[&/\]/\\&/g')
+          
+          TRIAGE_PROMPT=$(echo "$PROMPT_TEMPLATE" | sed "s/{{ISSUE_TITLE}}/$ESCAPED_TITLE/g")
+          TRIAGE_PROMPT=$(echo "$TRIAGE_PROMPT" | sed "s/{{ISSUE_BODY}}/$ESCAPED_BODY/g")
+          
+          echo "Generated prompt:"
+          echo "$TRIAGE_PROMPT"
+          echo "---"
+          
+          # Run goose with the triage prompt
+          echo "Running goose analysis..."
+          ~/.local/bin/goose session start > goose_output.txt 2>&1 << GOOSE_EOF
+          $TRIAGE_PROMPT
+          GOOSE_EOF
+
+          # Extract JSON from goose output
+          echo "Extracting triage results..."
+          cat goose_output.txt
+          
+          # Parse JSON from the output (goose may include other text, so we extract JSON)
+          # Look for JSON object in the output
+          TRIAGE_JSON=$(cat goose_output.txt | grep -o '{.*"labels".*"comment".*}' | head -1)
+          
+          if [ -z "$TRIAGE_JSON" ]; then
+            echo "ERROR: Could not parse JSON from goose output"
+            echo "Full goose output:"
+            cat goose_output.txt
+            exit 1
+          fi
+          
+          echo "Parsed triage result:"
+          echo "$TRIAGE_JSON" | jq '.'
+          
+          # Extract labels and comment
+          LABELS=$(echo "$TRIAGE_JSON" | jq -r '.labels | join(",")')
+          COMMENT=$(echo "$TRIAGE_JSON" | jq -r '.comment')
+          
+          echo "Labels to apply: $LABELS"
+          echo "Comment to post: $COMMENT"
+          
+          # Apply labels using GitHub CLI
+          echo "Applying labels..."
+          gh issue edit $ISSUE_NUMBER \
+            --repo $REPO \
+            --add-label "$LABELS"
+          
+          # Post comment using GitHub CLI
+          echo "Posting triage comment..."
+          FULL_COMMENT="🤖 **Automated Triage**
+
+          $COMMENT
+
+          ---
+          *This issue was automatically triaged by goose. If the categorization seems incorrect, please adjust the labels or mention a maintainer.*"
+          
+          gh issue comment $ISSUE_NUMBER \
+            --repo $REPO \
+            --body "$FULL_COMMENT"
+          
+          echo "✅ Triage complete for issue #$ISSUE_NUMBER"
+

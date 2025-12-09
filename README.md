@@ -1,158 +1,205 @@
-# Festival Feedback System
+# Winter Festival Feedback Triage System 🎄
 
-An automated GitHub-based feedback tracking and triage system for the Winter Festival, powered by AI-driven issue analysis using goose.
+Automated GitHub issue triage system using [goose](https://github.com/block/goose) to categorize and prioritize festival feedback.
 
 ## Overview
 
-This repository provides an intelligent issue management system that automatically analyzes, categorizes, and labels GitHub issues submitted by festival coordinators and attendees. When a new issue is created, a GitHub Actions workflow triggers goose to analyze the content and automatically apply appropriate labels and contextual comments.
-
-## Features
-
-- **Automatic Triage**: New issues are automatically analyzed and categorized within 2 minutes of creation
-- **Smart Categorization**: Issues are labeled as `urgent`, `feature`, `question`, or `bug`
-- **Contextual Comments**: AI-generated helpful comments provide guidance and next steps
-- **Issue Templates**: Structured templates guide users to provide relevant information
-- **Audit Trail**: Complete workflow logs for transparency and debugging
+This system automatically triages festival feedback issues using AI:
+- 🏷️ **Auto-categorizes**: urgent, bug, feature, or question
+- ⚡ **Assigns priority**: high, medium, or low
+- 💬 **Adds helpful comments**: Explains the triage decision and suggests next steps
+- 😊 **Detects sentiment**: positive, neutral, or negative (optional)
 
 ## How It Works
 
-1. A festival coordinator or attendee creates an issue via GitHub
-2. GitHub Actions workflow is triggered on the `issues:opened` event
-3. goose analyzes the issue title and body using LLM capabilities
-4. The system automatically:
-   - Assigns appropriate category labels
-   - Determines priority level
-   - Posts a helpful, context-aware comment
-   - Suggests next steps or relevant information
-5. Festival operations team can act on properly labeled and triaged issues
+1. **Create an issue** (or edit existing one)
+2. **GitHub Actions triggers** the workflow
+3. **Goose analyzes** the issue using AI
+4. **Labels are applied** automatically
+5. **Comment is posted** with triage explanation
 
-## Labels
+## Setup Instructions
 
-The system uses the following core labels:
+### 1. Configure GitHub Secret (Required)
 
-- **urgent** (🔴 #b60205) - Issues requiring immediate attention
-- **feature** (🟢 #0e8a16) - Feature requests and suggestions
-- **question** (🔵 #0366d6) - Questions about the festival
-- **bug** (🟠 #d93f0b) - Problems or issues that need fixing
+Add your OpenRouter API key as a repository secret:
 
-Optional priority labels:
-- `priority:high`
-- `priority:medium`
-- `priority:low`
+1. Go to Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Name: `OPENROUTER_API_KEY`
+4. Value: Your OpenRouter API key
+5. Click "Add secret"
 
-## Setup
+### 2. Enable GitHub Actions
 
-### Prerequisites
+Ensure GitHub Actions is enabled:
+- Go to Settings → Actions → General
+- Under "Actions permissions", select "Allow all actions and reusable workflows"
 
-- GitHub repository with Actions enabled
-- goose CLI installed (or installable in CI environment)
-- LLM provider API key (e.g., OpenAI, Anthropic, or OpenRouter)
+## Testing the System
 
-### Configuration
+### Test with Sample Issues
 
-1. **Add API Key as Secret**:
-   - Go to your repository Settings → Secrets and variables → Actions
-   - Add a new secret named `GOOSE_API_KEY` with your LLM provider API key
+Create these three test issues to verify the system works:
 
-2. **Enable GitHub Actions**:
-   - The workflow file is located at `.github/workflows/triage-on-issue.yml`
-   - It will automatically trigger when new issues are created
+**Test 1: Urgent Issue**
+```
+Title: Heating system failing in the Main Tent
+Body: The heaters in the Main Tent stopped working tonight. It's very cold and several booths reported no heat. Needs immediate attention.
+```
+Expected labels: `urgent`, `priority:high`, `sentiment:negative`
 
-3. **Create Issue Templates** (optional):
-   - Issue templates are provided in `.github/ISSUE_TEMPLATE/`
-   - These guide users to provide structured information
+**Test 2: Feature Request**
+```
+Title: Photo booth should print festival-themed frames
+Body: Suggestion: Add printed frames with festival graphics so people can take physical souvenirs.
+```
+Expected labels: `feature`, `priority:low`, `sentiment:positive` or `sentiment:neutral`
 
-## Example Issues
+**Test 3: Question**
+```
+Title: Where is the lost & found located?
+Body: Visitor found a jacket and wants to return it. Where should they go?
+```
+Expected labels: `question`, `priority:low`, `sentiment:neutral`
 
-The system is designed to handle various types of festival feedback:
+### Watch the Workflow Run
 
-### Urgent Problem
-> **Title**: Heating system failing in the Main Tent  
-> **Body**: The heaters in the Main Tent stopped working tonight. It's very cold and several booths reported no heat. Needs immediate attention.
->
-> **Expected triage**: `urgent` label, high priority, immediate action suggestions
+1. Go to the **Actions** tab in your repository
+2. Find the "goose-issue-triage" workflow run
+3. Click on it to see the logs
+4. Verify:
+   - ✅ Goose analyzed the issue
+   - ✅ Labels were applied
+   - ✅ Comment was posted
 
-### Feature Request
-> **Title**: Photo booth should print festival-themed frames  
-> **Body**: Suggestion: Add printed frames with festival graphics so people can take physical souvenirs.
->
-> **Expected triage**: `feature` label, suggestion acknowledgment
+## Triage Criteria
 
-### Question
-> **Title**: Where is the lost & found located?  
-> **Body**: Visitor found a jacket and wants to return it. Where should they go?
->
-> **Expected triage**: `question` label, location information
+The system uses these criteria to categorize issues:
 
-## Success Metrics
+### Categories
 
-- ✅ 100% of new issues receive triage labels and comments within 2 minutes
-- ✅ Low false-positive label rate (<10%)
-- ✅ Complete audit trail via GitHub Actions logs
-- ✅ Demonstrated automated workflow execution
+| Label | When to Use | Examples |
+|-------|-------------|----------|
+| **urgent** | Safety hazards, critical failures, immediate action needed | "Heating system down", "Fire exit blocked" |
+| **bug** | Equipment malfunctions, technical problems | "Photo booth not printing", "Payment system down" |
+| **feature** | Enhancement requests, new capabilities | "Add themed frames", "Mobile charging stations" |
+| **question** | Information requests, location queries | "Where is lost & found?", "What time does stage open?" |
 
-## Architecture
+### Priority Levels
+
+| Label | Criteria | Impact |
+|-------|----------|--------|
+| **priority:high** | Safety/security, critical systems down, affects many, time-sensitive | Severe disruption |
+| **priority:medium** | Partial degradation, specific area affected, has workaround | Moderate disruption |
+| **priority:low** | Nice-to-have, general questions, cosmetic issues | Minimal disruption |
+
+See [`.github/TRIAGE_CRITERIA.md`](.github/TRIAGE_CRITERIA.md) for detailed criteria.
+
+## Customizing the Triage Prompt
+
+The triage logic is defined in `.github/triage_prompt.txt`. To customize:
+
+1. Edit `.github/triage_prompt.txt`
+2. Modify categories, priorities, or instructions
+3. Commit and push changes
+4. Next issue will use the updated prompt
+
+**No need to modify the workflow file!**
+
+## Project Structure
 
 ```
-GitHub Issues (Input)
-      ↓
-GitHub Actions Workflow (Trigger)
-      ↓
-goose CLI (Analysis via LLM)
-      ↓
-GitHub API (Apply labels & comments)
-      ↓
-Triaged Issue (Output)
+.github/
+├── workflows/
+│   └── triage-on-issue.yml      # GitHub Actions workflow (includes auto-label creation)
+├── triage_prompt.txt             # Goose triage prompt (easy to customize)
+└── TRIAGE_CRITERIA.md            # Detailed triage criteria documentation
+
+prd.md                            # Product Requirements Document
+README.md                         # This file
+WORKFLOW_SUMMARY.md               # Technical implementation summary
 ```
 
-## Development
+## How the Workflow Works
 
-### Testing the Workflow
+1. **Trigger**: Issue is created or edited
+2. **Install goose**: Downloads and installs goose CLI
+3. **Configure goose**: Sets up OpenRouter provider
+4. **Ensure labels exist**: Automatically creates missing labels (no manual setup needed!)
+5. **Load prompt**: Reads `.github/triage_prompt.txt`
+6. **Substitute variables**: Replaces `{{ISSUE_TITLE}}` and `{{ISSUE_BODY}}`
+7. **Run goose**: Analyzes issue and returns JSON
+8. **Parse output**: Extracts labels and comment
+9. **Apply labels**: Uses GitHub CLI to add labels
+10. **Post comment**: Adds triage explanation to issue
 
-Create a test issue to see the triage system in action:
+## Troubleshooting
 
-```bash
-gh issue create --title "Test issue" --body "This is a test of the automated triage system"
-```
+### Labels Not Applied
 
-Watch the workflow run:
+**Problem**: Workflow runs but labels aren't added
 
-```bash
-gh run watch
-```
+**Solution**: 
+- Check workflow logs - the "Ensure Required Labels Exist" step should create them automatically
+- Verify the GITHUB_TOKEN has permissions to create labels
+- Check workflow logs for errors
 
-### Workflow Logs
+### API Key Errors
 
-View logs for debugging and auditing:
-- Navigate to the Actions tab in your repository
-- Select the workflow run
-- Expand steps to see detailed logs
+**Problem**: `OPENROUTER_API_KEY not found`
 
-## Security
+**Solution**:
+- Verify secret is named exactly `OPENROUTER_API_KEY`
+- Check it's a repository secret (not environment secret)
+- Ensure you have a valid OpenRouter API key
 
-- API keys are stored as GitHub Secrets and never exposed in logs
-- Workflow runs with least-privilege permissions
-- All actions are audited in workflow run logs
+### Workflow Doesn't Trigger
 
-## Future Enhancements
+**Problem**: Creating issues doesn't start the workflow
 
-Potential additions to the system:
-- Multi-stage triage with clarifying questions
-- Duplicate issue detection and auto-linking
-- Sentiment analysis
-- Daily/weekly summary reports
-- Slack/Discord notifications
-- Analytics dashboard
+**Solution**:
+- Check GitHub Actions is enabled
+- Verify workflow file is in `.github/workflows/`
+- Check workflow permissions (Settings → Actions)
+
+### JSON Parsing Fails
+
+**Problem**: `ERROR: Could not parse JSON from goose output`
+
+**Solution**:
+- Check goose output in workflow logs
+- Goose might need clearer instructions in the prompt
+- Verify the prompt asks for JSON output only
+
+## Example Output
+
+When the workflow runs successfully, you'll see:
+
+**Issue #1** gets:
+- Labels: `urgent`, `priority:high`, `sentiment:negative`
+- Comment:
+  ```
+  🤖 Automated Triage
+  
+  This is a critical facilities issue affecting attendee comfort and safety. 
+  I've labeled it as urgent with high priority. Suggested next steps: 
+  (1) dispatch facilities team immediately, (2) check thermostat and power 
+  connections, (3) update issue with resolution status.
+  
+  ---
+  This issue was automatically triaged by goose. If the categorization seems 
+  incorrect, please adjust the labels or mention a maintainer.
+  ```
 
 ## License
 
-[Add your license here]
+See repository license file.
 
 ## Contributing
 
-[Add contribution guidelines here]
+Feel free to open issues or submit PRs to improve the triage system!
 
----
+## Acknowledgments
 
-**Created for**: Advent of AI 2025 - Day 6  
-**Purpose**: Automated festival feedback management and triage
+Built with [goose](https://github.com/block/goose) by Block.
