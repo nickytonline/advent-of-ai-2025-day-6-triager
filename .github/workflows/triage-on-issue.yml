@@ -125,11 +125,18 @@ jobs:
           echo "Running goose analysis..."
           
           # Save the prompt to a file for goose to read
-          # goose run is designed for non-interactive/CI use
           echo "$TRIAGE_PROMPT" > goose_input.txt
           
-          # Run goose in non-interactive mode with the prompt from stdin
-          ~/.local/bin/goose run < goose_input.txt > goose_output.txt 2>&1
+          # Run goose in non-interactive mode
+          # --no-session: Don't create session files (good for CI)
+          # -i goose_input.txt: Read instructions from file
+          # --quiet: Only output the response
+          ~/.local/bin/goose run --no-session --quiet -i goose_input.txt > goose_output.txt 2>&1 || {
+            echo "Goose command failed with exit code $?"
+            echo "Attempting to show error output:"
+            cat goose_output.txt
+            exit 1
+          }
 
           # Extract JSON from goose output
           echo "Extracting triage results..."
