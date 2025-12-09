@@ -46,6 +46,41 @@ jobs:
           echo "Config file contents:"
           cat ~/.config/goose/config.yaml
 
+      - name: Check if First-Time Contributor
+        id: first_time
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          chmod +x .github/check_first_time_contributor.sh
+          
+          # Run the check script and capture output
+          if .github/check_first_time_contributor.sh "$AUTHOR" "$REPO"; then
+            echo "is_first_time=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_first_time=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Welcome First-Time Contributors
+        if: steps.first_time.outputs.is_first_time == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          echo "Posting welcome message for first-time contributor..."
+          
+          # Read welcome message template and substitute author
+          WELCOME_MESSAGE=$(cat .github/WELCOME_MESSAGE.md | sed "s/{{AUTHOR}}/${AUTHOR}/g")
+          
+          gh issue comment $ISSUE_NUMBER \
+            --repo $REPO \
+            --body "$WELCOME_MESSAGE"
+          
+          echo "✅ Welcome message posted!"
+
       - name: Ensure Required Labels Exist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

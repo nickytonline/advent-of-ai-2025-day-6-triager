@@ -9,14 +9,16 @@ This system automatically triages festival feedback issues using AI:
 - ⚡ **Assigns priority**: high, medium, or low
 - 💬 **Adds helpful comments**: Explains the triage decision and suggests next steps
 - 😊 **Detects sentiment**: positive, neutral, or negative (optional)
+- 👋 **Welcomes first-timers**: Detects and welcomes first-time contributors
 
 ## How It Works
 
 1. **Create an issue** (or edit existing one)
 2. **GitHub Actions triggers** the workflow
-3. **Goose analyzes** the issue using AI
-4. **Labels are applied** automatically
-5. **Comment is posted** with triage explanation
+3. **First-time contributor?** Gets a welcome message 👋
+4. **Goose analyzes** the issue using AI
+5. **Labels are applied** automatically
+6. **Comment is posted** with triage explanation
 
 ## Setup Instructions
 
@@ -96,7 +98,9 @@ The system uses these criteria to categorize issues:
 
 See [`.github/TRIAGE_CRITERIA.md`](.github/TRIAGE_CRITERIA.md) for detailed criteria.
 
-## Customizing the Triage Prompt
+## Customization
+
+### Customizing the Triage Prompt
 
 The triage logic is defined in `.github/triage_prompt.txt`. To customize:
 
@@ -107,32 +111,78 @@ The triage logic is defined in `.github/triage_prompt.txt`. To customize:
 
 **No need to modify the workflow file!**
 
+### Customizing the Welcome Message
+
+The first-time contributor welcome message is in `.github/WELCOME_MESSAGE.md`. To customize:
+
+1. Edit `.github/WELCOME_MESSAGE.md`
+2. Keep the `{{AUTHOR}}` placeholder (it gets replaced with the username)
+3. Commit and push changes
+4. Next first-time contributor will see the new message
+
+### Customizing First-Time Detection Logic
+
+The first-time contributor detection logic is in `.github/check_first_time_contributor.sh`. To customize when someone is considered "first-time":
+
+1. Edit `.github/check_first_time_contributor.sh`
+2. Modify the conditions (currently: first issue AND no PRs)
+3. Commit and push changes
+
+**Example modifications:**
+- Only check for issues: Remove the PR count check
+- Include commenters: Add logic to check for issue comments
+- Change threshold: Consider first 3 issues instead of just the first
+
 ## Project Structure
 
 ```
 .github/
 ├── workflows/
-│   └── triage-on-issue.yml      # GitHub Actions workflow (includes auto-label creation)
-├── triage_prompt.txt             # Goose triage prompt (easy to customize)
-└── TRIAGE_CRITERIA.md            # Detailed triage criteria documentation
+│   └── triage-on-issue.yml           # GitHub Actions workflow
+├── ISSUE_TEMPLATE/                   # Issue templates for submitters
+│   ├── bug_report.md
+│   ├── feature_request.md
+│   ├── question.md
+│   ├── coordinator_notes.md
+│   ├── feedback.md
+│   ├── lost_and_found.md
+│   └── config.yml
+├── triage_prompt.txt                 # Goose triage prompt (easy to customize)
+├── WELCOME_MESSAGE.md                # First-time contributor welcome message (easy to customize)
+├── check_first_time_contributor.sh   # Script to detect first-time contributors
+└── TRIAGE_CRITERIA.md                # Detailed triage criteria documentation
 
-prd.md                            # Product Requirements Document
-README.md                         # This file
-WORKFLOW_SUMMARY.md               # Technical implementation summary
+prd.md                                # Product Requirements Document
+README.md                             # This file
+WORKFLOW_SUMMARY.md                   # Technical implementation summary
+STATUS.md                             # Current project status
+IMPLEMENTATION_SUMMARY.md             # Complete implementation details
 ```
+
+## Features
+
+### 🎉 First-Time Contributor Welcome
+
+The system automatically detects first-time contributors and posts a friendly welcome message. A contributor is considered "first-time" if:
+- This is their first issue in the repository, AND
+- They have never opened a pull request
+
+The welcome message appears as a separate comment before the triage comment, making new contributors feel valued and informed about the process.
 
 ## How the Workflow Works
 
 1. **Trigger**: Issue is created or edited
 2. **Install goose**: Downloads and installs goose CLI
 3. **Configure goose**: Sets up OpenRouter provider
-4. **Ensure labels exist**: Automatically creates missing labels (no manual setup needed!)
-5. **Load prompt**: Reads `.github/triage_prompt.txt`
-6. **Substitute variables**: Replaces `{{ISSUE_TITLE}}` and `{{ISSUE_BODY}}`
-7. **Run goose**: Analyzes issue and returns JSON
-8. **Parse output**: Extracts labels and comment
-9. **Apply labels**: Uses GitHub CLI to add labels
-10. **Post comment**: Adds triage explanation to issue
+4. **Check contributor status**: Determines if this is a first-time contributor
+5. **Welcome first-timers**: Posts welcome message (if applicable)
+6. **Ensure labels exist**: Automatically creates missing labels (no manual setup needed!)
+7. **Load prompt**: Reads `.github/triage_prompt.txt`
+8. **Substitute variables**: Replaces `{{ISSUE_TITLE}}` and `{{ISSUE_BODY}}`
+9. **Run goose**: Analyzes issue and returns JSON
+10. **Parse output**: Extracts labels and comment
+11. **Apply labels**: Uses GitHub CLI to add labels
+12. **Post comment**: Adds triage explanation to issue
 
 ## Troubleshooting
 
