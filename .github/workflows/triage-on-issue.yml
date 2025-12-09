@@ -123,9 +123,13 @@ jobs:
           
           # Run goose with the triage prompt
           echo "Running goose analysis..."
-          ~/.local/bin/goose session start > goose_output.txt 2>&1 << GOOSE_EOF
-          $TRIAGE_PROMPT
-          GOOSE_EOF
+          
+          # Save the prompt to a file for goose to read
+          # goose run is designed for non-interactive/CI use
+          echo "$TRIAGE_PROMPT" > goose_input.txt
+          
+          # Run goose in non-interactive mode with the prompt from stdin
+          ~/.local/bin/goose run < goose_input.txt > goose_output.txt 2>&1
 
           # Extract JSON from goose output
           echo "Extracting triage results..."
