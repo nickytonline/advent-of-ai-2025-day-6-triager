@@ -142,11 +142,18 @@ jobs:
           echo "Extracting triage results..."
           cat goose_output.txt
           
-          # Parse JSON from the output (goose may include other text, so we extract JSON)
-          # Look for JSON object in the output
-          TRIAGE_JSON=$(cat goose_output.txt | grep -o '{.*"labels".*"comment".*}' | head -1)
+          # Parse JSON from the output
+          # Goose wraps the response in markdown code fences, so we need to extract it
+          # Remove the ```json and ``` wrappers and extract just the JSON object
+          TRIAGE_JSON=$(cat goose_output.txt | sed -n '/^```json$/,/^```$/p' | sed '1d;$d' | jq -c '.')
           
-          if [ -z "$TRIAGE_JSON" ]; then
+          # Fallback: if that didn't work, try to find JSON directly
+          if [ -z "$TRIAGE_JSON" ] || [ "$TRIAGE_JSON" = "null" ]; then
+            echo "Trying alternative JSON extraction..."
+            TRIAGE_JSON=$(cat goose_output.txt | grep -Pzo '(?s)\{.*?"labels".*?"comment".*?\}' | tr -d '\0' | head -1)
+          fi
+          
+          if [ -z "$TRIAGE_JSON" ] || [ "$TRIAGE_JSON" = "null" ]; then
             echo "ERROR: Could not parse JSON from goose output"
             echo "Full goose output:"
             cat goose_output.txt
