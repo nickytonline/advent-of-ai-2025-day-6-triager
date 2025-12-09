@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Festival Help Desk
+    url: https://festival.example.com/help
+    about: For general questions about the festival schedule and activities
+  - name: Emergency Contact
+    url: tel:555-0100
+    about: For urgent emergencies, call security directly at 555-0100
